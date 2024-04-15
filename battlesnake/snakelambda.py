@@ -95,7 +95,7 @@ def move(game_state: typing.Dict) -> typing.Dict:
         distancex = abs(value["x"]-my_head["x"])
         distancey = abs(value["y"]-my_head["y"])
         food_distance[index] = distancex+distancey
-    closest = max(food_distance, key=food_distance.get)
+    closest = min(food_distance, key=food_distance.get)
     print(f"CLOSEST FOOD AT: {food[closest]}\nCURRENT HEAD AT: {my_head}")
     priority = {}
     next_move = ''
