@@ -1,0 +1,4 @@
+# .dockerignore
+cdk.out/
+cdk*/
+cdk*
