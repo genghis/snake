@@ -26,7 +26,20 @@ def start(game_state: typing.Dict):
 def end(game_state: typing.Dict):
     print("GAME OVER\n")
 
-
+def enemy_imminent(target_location, head_locations):
+    surrounding = [
+        (target_location[0]+1,target_location[1]),
+        (target_location[0]-1,target_location[1]),
+        (target_location[0],target_location[1]+1),
+        (target_location[0],target_location[1]-1),
+        (target_location[0],target_location[1])
+        ]
+    imminent = False
+    for i in head_locations:
+        if i in surrounding:
+            print(f"SNAKE NEAR FOOD. SNAKE AT {i}")
+            imminent = True
+    return imminent
 # move is called on every turn and returns your next move
 # Valid moves are "up", "down", "left", or "right"
 # See https://docs.battlesnake.com/api/example-move for available data
@@ -62,10 +75,28 @@ def move(game_state: typing.Dict) -> typing.Dict:
         is_move_safe["down"] = False
     if my_head["y"] == board_height-1:
         is_move_safe["up"] = False
-        
+    
+    # Prevent the snake from hitting hazards
+    hazards = game_state['board']['hazards']
+    for i in hazards:
+        if i["y"] == my_head["y"]:
+            if i["x"] == my_head["x"]-1:
+                is_move_safe["left"] = False
+            if i["x"] == my_head["x"]+1:
+                is_move_safe["right"] = False
+        if i["x"] == my_head["x"]:
+            if i["y"] == my_head["y"]-1:
+                is_move_safe["down"] = False
+            if i["y"] == my_head["y"]+1:
+                is_move_safe["up"] = False
+    
     # Prevent your Battlesnake from colliding with other Battlesnakes
     opponents = game_state['board']['snakes']
+    # print(opponents)
+    head_locations = []
     for snake in opponents:
+        if snake['id'] != game_state['you']['id']:
+            head_locations.append((snake["head"]["x"],snake["head"]["y"]))
         for i in snake["body"]:
             if i["y"] == my_head["y"]:
                 if i["x"] == my_head["x"]-1:
@@ -96,25 +127,38 @@ def move(game_state: typing.Dict) -> typing.Dict:
         distancey = abs(value["y"]-my_head["y"])
         food_distance[index] = distancex+distancey
     closest = min(food_distance, key=food_distance.get)
-    print(f"CLOSEST FOOD AT: {food[closest]}\nCURRENT HEAD AT: {my_head}")
+    print(f"CLOSEST FOOD AT: {food[closest]}\nCURRENT HEAD AT: {my_head}\nSNAKES AT {head_locations}")
     priority = {}
     next_move = ''
-    
-    if food[closest]["y"] == my_head["y"]+1 and "up" in safe_moves:
+    sketchy_moves = []
+    if enemy_imminent((my_head["x"],my_head["y"]+1), head_locations) and "up" in safe_moves:
+        safe_moves.remove("up")
+        sketchy_moves.append("up")
+    if enemy_imminent((my_head["x"],my_head["y"]-1), head_locations) and "down" in safe_moves:
+        safe_moves.remove("down")
+        sketchy_moves.append("down")
+    if enemy_imminent((my_head["x"]+1,my_head["y"]), head_locations) and "right" in safe_moves:
+        safe_moves.remove("right")
+        sketchy_moves.append("right")
+    if enemy_imminent((my_head["x"]-1,my_head["y"]), head_locations) and "left" in safe_moves:
+        safe_moves.remove("left")
+        sketchy_moves.append("left")
+        
+    if food[closest]["y"] == my_head["y"]+1 and food[closest]['x'] == my_head['x'] and "up" in safe_moves:
         next_move = "up"
-    elif food[closest]["y"] == my_head["y"]-1 and "down" in safe_moves:
+    elif food[closest]["y"] == my_head["y"]-1 and food[closest]['x'] == my_head['x'] and "down" in safe_moves:
         next_move = "down"
-    elif food[closest]["x"] == my_head["x"]+1 and "right" in safe_moves:
+    elif food[closest]["x"] == my_head["x"]+1 and food[closest]['y'] == my_head['y'] and "right" in safe_moves:
         next_move = "right"
-    elif food[closest]["x"] == my_head["x"]-1 and "left" in safe_moves:
+    elif food[closest]["x"] == my_head["x"]-1 and food[closest]['y'] == my_head['y'] and "left" in safe_moves:
         next_move = "left"
-    elif food[closest]["y"] > my_head["y"]+1 and "up" in safe_moves:
+    elif food[closest]["y"] > my_head["y"] and "up" in safe_moves:
         priority["up"] = abs(food[closest]["y"]-my_head["y"])
-    elif food[closest]["y"] < my_head["y"]-1 and "down" in safe_moves:
+    elif food[closest]["y"] < my_head["y"] and "down" in safe_moves:
         priority["down"] = abs(food[closest]["y"]-my_head["y"])
-    elif food[closest]["x"] > my_head["x"]+1 and "right" in safe_moves:
+    elif food[closest]["x"] > my_head["x"] and "right" in safe_moves:
         priority["right"] = abs(food[closest]["x"]-my_head["x"])
-    elif food[closest]["x"] < my_head["x"]-1 and "left" in safe_moves:
+    elif food[closest]["x"] < my_head["x"] and "left" in safe_moves:
         priority["left"] = abs(food[closest]["x"]-my_head["x"])
     
     if next_move != '':
@@ -122,29 +166,11 @@ def move(game_state: typing.Dict) -> typing.Dict:
     elif priority:
         print(f'PRIORITY IS \n{priority}')
         next_move = min(priority, key=priority.get)
-    else:
+    elif safe_moves:
+        print("Random Safe Move")
         next_move = random.choice(safe_moves)
-    # certainty = []
-    # possibilities = {}
-    # for move in safe_moves:
-    #     match move:
-    #         case "up":
-    #             if food[closest]["y"] > my_head["y"]:
-    #                 possibilities["up"] = abs(food[closest]["y"] - my_head["y"])
-    #         case "down":
-    #             if food[closest]["y"] < my_head["y"]:
-    #                 possibilities["down"] = abs(food[closest]["y"] - my_head["y"])
-    #         case "left":
-    #             if food[closest]["x"] < my_head["x"]:
-    #                 possibilities["left"] = abs(food[closest]["x"] - my_head["x"])
-    #         case "right":
-    #             if food[closest]["x"] > my_head["x"]:
-    #                 possibilities["right"] = abs(food[closest]["x"] - my_head["x"])
-    
-    # if possibilities:
-    #     next_move = min(possibilities, key=possibilities.get)
-    # else:
-    #     next_move = random.choice(safe_moves)
+    else:
+        next_move = random.choice(sketchy_moves)
     
     print(f"MOVE {game_state['turn']}: {next_move}")
     return {"move": next_move}
